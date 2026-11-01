@@ -108148,7 +108148,18 @@ function loadConfig() {
     if (existsSync37(p))
       return { ...parseSimpleYaml(readFileSync37(p, "utf-8")), config_path: p };
   }
-  throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
+  const vault = findObsidianVault(process.cwd());
+  if (vault)
+    return { vault_path: vault, config_path: void 0 };
+  throw new Error("No vault found. Start your agent inside an Obsidian vault, or set the vault path (Claude Code: /plugin configure llmwiki@obsidian-llm-wiki; other hosts: VAULT_MIND_VAULT_PATH).");
+}
+function findObsidianVault(start) {
+  for (let dir = resolve22(start); ; dir = dirname28(dir)) {
+    if (existsSync37(join46(dir, ".obsidian")))
+      return dir;
+    if (dirname28(dir) === dir)
+      return void 0;
+  }
 }
 function parseSimpleYaml(raw) {
   const result = {};
@@ -110161,6 +110172,7 @@ if (_isEntry) {
 }
 export {
   VaultFs,
+  findObsidianVault,
   resolveCompilerPath
 };
 /*! Bundled license information:
