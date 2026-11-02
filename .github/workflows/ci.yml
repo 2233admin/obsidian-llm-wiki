@@ -115,7 +115,7 @@ jobs:
           cache-dependency-path: |
             mcp-server/package-lock.json
             obsidian-plugin/package-lock.json
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: obsidian-plugin/.obsidian-cache
           key: obsidian-cache-${{ runner.os }}-${{ hashFiles('obsidian-plugin/package-lock.json') }}
